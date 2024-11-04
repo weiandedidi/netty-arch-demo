@@ -1,0 +1,20 @@
+#不能用localhost,否则启动报异常:Unresolved address
+#tcp监听的端口
+tcp:
+  port: 8090
+  # bossGroup的线程数，通常设置为1，端口数有多少，设置为多少
+  boss:
+    thread:
+      count: 2
+    # worker的线程（CPU核心数 * 2）数，
+  worker:
+    thread:
+      count: 8
+  keepalive: # tcp校验的时间
+    idle: 60
+    interval: 100
+    count: 3
+  message:
+    length: 40960
+
+
