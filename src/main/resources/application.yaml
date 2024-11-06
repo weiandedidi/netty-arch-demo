@@ -11,10 +11,12 @@ tcp:
     thread:
       count: 8
   keepalive: # tcp校验的时间
-    idle: 60
-    interval: 100
+    idle: 15
+    interval: 60  # 无响应阈值
     count: 3
   message:
     length: 40960
+  retry: # 自定义重试测试
+    count: 3
 
 

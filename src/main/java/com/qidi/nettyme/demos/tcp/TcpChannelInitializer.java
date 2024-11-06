@@ -26,18 +26,28 @@ public class TcpChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     @Value("${tcp.message.length:40960}")
     private int length;
-    @Value("${tcp.keepalive.idle:60}")
+    @Value("${tcp.keepalive.idle:15}")
     private int keepaliveIdle; // 空闲时间
-    @Value("${tcp.keepalive.interval:20}")
-    private int keepaliveInterval; // 探测间隔
+    @Value("${tcp.keepalive.interval:60}")
+    private int keepaliveInterval; // 探测心跳最大次数
     @Value("${tcp.keepalive.count:3}")
     private int keepaliveCount; // 探测次数
+    private final TcpDispatcherHandler tcpDispatcherHandler;
+
+    /**
+     * bean注入
+     *
+     * @param tcpDispatcherHandler
+     */
+    public TcpChannelInitializer(TcpDispatcherHandler tcpDispatcherHandler) {
+        this.tcpDispatcherHandler = tcpDispatcherHandler;
+    }
 
     @Override
     protected void initChannel(SocketChannel socketChannel) throws Exception {
         ChannelPipeline pipeline = socketChannel.pipeline();
         //心跳检测
-        pipeline.addLast("idle", new IdleStateHandler(keepaliveInterval, 0, keepaliveIdle, TimeUnit.SECONDS));
+        pipeline.addLast("idle", new IdleStateHandler(keepaliveIdle, 0, keepaliveInterval, TimeUnit.SECONDS));
         //        创建ssl单向验证服务
 //        SSLEngine engine = factory.getServerContext(path).createSSLEngine();
 //        engine.setUseClientMode(false);      //设置为服务器模式
@@ -49,6 +59,6 @@ public class TcpChannelInitializer extends ChannelInitializer<SocketChannel> {
         pipeline.addLast("decoder", new StringDecoder(CharsetUtil.UTF_8));
         pipeline.addLast("encoder", new StringEncoder(CharsetUtil.UTF_8));
         //消息处理 如果不是全局的统计，不能使用单例的，因为客户端断了重连会爆 is not a @Sharable handler错误
-        pipeline.addLast("handler", new TcpDispatcherHandler());
+        pipeline.addLast("handler", tcpDispatcherHandler);
     }
 }

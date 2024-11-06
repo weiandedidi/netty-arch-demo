@@ -1,13 +1,17 @@
 package com.qidi.nettyme.demos.tcp.dto;
 
 import com.qidi.nettyme.demos.tcp.valueobject.RequestType;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * @author qidi
  * @date 2019-04-24 18:02
  */
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class CommonDto<T> {
     /**
      * 请求的消息头
@@ -20,24 +24,11 @@ public class CommonDto<T> {
 
     public static <T> CommonDto<T> buildSuccessServerResponseDto(String messageType, T body) {
         CommonDto<T> commonDto = new CommonDto<T>();
-        Header header = buildSuccessServerRepsonseHeader(messageType);
+        Header header = Header.buildSuccessServerRepsonseHeader(messageType);
         commonDto.setHeader(header);
         commonDto.setBody(body);
         return commonDto;
     }
 
-    public static Header buildSuccessServerRepsonseHeader(String messageType) {
-        // 创建自定义 Header
-        Header header = new Header();
-        header.setRequestId("123456");
-        header.setVersion("1.0");
-        header.setServiceName("MyService");
-        header.setRequestType(RequestType.RESPONSE.getType());
-        header.setMessageType(messageType);
-        header.setTimestamp(System.currentTimeMillis());
-        header.setTraceId("TRACE123456");
-        header.setInterfaceName("myMethod");
-        header.setCode(200);
-        return header;
-    }
+
 }

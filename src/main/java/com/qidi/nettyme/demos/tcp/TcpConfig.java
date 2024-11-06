@@ -1,5 +1,8 @@
 package com.qidi.nettyme.demos.tcp;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.qidi.nettyme.demos.tcp.valueobject.LiveChannelCache;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
@@ -8,6 +11,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import javax.annotation.PostConstruct;
@@ -23,63 +27,21 @@ import javax.annotation.PreDestroy;
 @Configuration
 @Slf4j
 public class TcpConfig {
-
-    @Value("${tcp.port}")
-    private int tcpPort;
-    @Value("${tcp.boss.thread.count:2}")
-    private int bossThreadCount;
-    @Value("${tcp.worker.thread.count:8}")
-    private int workerThreadCount;
-    /**
-     * acceptor group
-     */
-    private NioEventLoopGroup bossGroup;
-    /**
-     * client group
-     */
-    private NioEventLoopGroup workerGroup;
-    /**
-     * 保存server的异步结果
-     */
-    ChannelFuture serverChannelFuture;
-    @Autowired
-    TcpChannelInitializer tcpChannelInitializer;
-
-    @PostConstruct
-    public ServerBootstrap tcpServerBootstrap() {
-        ServerBootstrap serverBootstrap = new ServerBootstrap();
-        bossGroup = new NioEventLoopGroup(bossThreadCount);
-        workerGroup = new NioEventLoopGroup(workerThreadCount);
-        serverBootstrap.group(bossGroup, workerGroup)
-                .channel(NioServerSocketChannel.class)
-                .option(ChannelOption.SO_BACKLOG, 1024)
-                .childOption(ChannelOption.SO_KEEPALIVE, true)
-                .childOption(ChannelOption.TCP_NODELAY, true) //及时性高不延迟的，tcp配置，noDelay
-                .childOption(ChannelOption.SO_RCVBUF, 32 * 1024)
-                .childOption(ChannelOption.SO_SNDBUF, 32 * 1024)
-                .childHandler(tcpChannelInitializer);
-        try {
-            serverChannelFuture = serverBootstrap.bind(tcpPort).sync();
-            log.info("tcp server started on port: {}", tcpPort);
-        } catch (InterruptedException e) {
-            shutdown();
-        }
-        return serverBootstrap;
+    //TODO 这里分布式的应用可以使用redis作为远程连接池的实现，本地内存记住通讯通道，远程redis通过clientId找到服务器，分布式转发到那台服务器，然后找到通道发消息。
+    //通讯的通道的本地内存保存，最多2w个通讯, key是clientId
+    @Bean(name = "tcpClientCache")
+    public Cache<String, LiveChannelCache> tcpClientCache() {
+        return CacheBuilder.newBuilder()
+                .maximumSize(20000)
+                .build();
     }
 
-    @PreDestroy
-    public void shutdown() {
-        try {
-            //优雅关闭
-            if (serverChannelFuture != null) {
-                serverChannelFuture.channel().closeFuture().sync();
-            }
-        } catch (InterruptedException e) {
-            log.error("serverChannelFuture InterruptedException e, ", e);
-        } finally {
-            bossGroup.shutdownGracefully();
-            workerGroup.shutdownGracefully();
-        }
+    //通讯的通道的本地内存保存，最多2w个通讯, key是ChannelId，关闭通讯时使用
+    @Bean(name = "tcpChannelCache")
+    public Cache<String, LiveChannelCache> tcpChannelCache() {
+        return CacheBuilder.newBuilder()
+                .maximumSize(20000)
+                .build();
     }
 
 

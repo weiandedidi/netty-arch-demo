@@ -1,6 +1,10 @@
 package com.qidi.nettyme.demos.tcp.dto;
 
+import com.qidi.nettyme.demos.tcp.valueobject.MessageType;
+import com.qidi.nettyme.demos.tcp.valueobject.RequestType;
 import lombok.Data;
+
+import java.util.UUID;
 
 /**
  * @author qidi
@@ -11,9 +15,9 @@ public class Header {
     /**
      * 报文的唯一标识
      */
-    private String requestId;
+    private String messageId;
     private String version;
-    private String serviceName;
+    private String clientId;
     /**
      * 消息类型
      */
@@ -40,4 +44,31 @@ public class Header {
     private Integer code;
     //客户端的系统信息，版本号，时间，xxx
 
+    public static Header buildSuccessServerRepsonseHeader(String messageType) {
+        // 创建自定义 Header
+        Header header = new Header();
+        header.setMessageId("123456");
+        header.setVersion("1.0");
+        header.setRequestType(RequestType.RESPONSE.getType());
+        header.setMessageType(messageType);
+        header.setTimestamp(System.currentTimeMillis());
+        header.setTraceId("TRACE123456");
+        header.setInterfaceName("myMethod");
+        header.setCode(200);
+        return header;
+    }
+
+    public static Header buildHeartBeatRequestHeader() {
+        // 创建自定义 Header
+        Header header = new Header();
+        header.setMessageId("123456");
+        header.setVersion("1.0");
+        header.setRequestType(RequestType.REQUEST.getType());
+        header.setMessageType(MessageType.HEARTBEAT.getType());
+        header.setTimestamp(System.currentTimeMillis());
+        header.setTraceId(UUID.randomUUID().toString());
+        header.setInterfaceName("myMethod");
+        header.setCode(200);
+        return header;
+    }
 }
