@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Client</title>
+</head>
+<body>
+<div>
+    <input type="text" id="messageInput" placeholder="输入消息">
+    <button onclick="sendMessage()">发送</button>
+</div>
+<div id="messages"></div>
+
+<script>
+    let ws;
+
+    function connect() {
+        ws = new WebSocket('ws://localhost:8411/ws');
+
+        ws.onopen = function () {
+            console.log('连接成功');
+            addMessage('Connected to server');
+        };
+
+        ws.onmessage = function (event) {
+            console.log('收到消息:', event.data);
+            addMessage('收到: ' + event.data);
+        };
+
+        ws.onclose = function () {
+            console.log('连接关闭');
+            addMessage('Disconnected from server');
+            // 尝试重连
+            setTimeout(connect, 5000);
+        };
+
+        ws.onerror = function (error) {
+            console.error('WebSocket error:', error);
+            addMessage('Error: ' + error);
+        };
+    }
+
+    function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const message = input.value;
+        if (message && ws.readyState === WebSocket.OPEN) {
+            ws.send(message);
+            addMessage('发送: ' + message);
+            input.value = '';
+        }
+    }
+
+    function addMessage(message) {
+        const messagesDiv = document.getElementById('messages');
+        const messageElement = document.createElement('div');
+        messageElement.textContent = message;
+        messagesDiv.appendChild(messageElement);
+    }
+
+    // 初始连接
+    connect();
+</script>
+</body>
+</html>
