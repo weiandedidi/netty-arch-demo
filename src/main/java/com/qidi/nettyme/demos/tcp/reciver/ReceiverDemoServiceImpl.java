@@ -35,9 +35,6 @@ public class ReceiverDemoServiceImpl implements ReceiverDemoService {
         //根据header做具体的分发，message
         Header requestHeader = dto.getHeader();
         MessageType type = MessageType.getByType(requestHeader.getMessageType());
-        //TODO 通讯通道校验
-
-
         //需要特殊处理request的body
         Body body = new CommonBody(200, "success");
         switch (type) {
@@ -55,6 +52,7 @@ public class ReceiverDemoServiceImpl implements ReceiverDemoService {
                 break;
             case MESSAGE:
                 //消息的其他自定义消息，处理自定义的消息，返回结果，底层异步处理，request的body处理
+                //TODO 通讯通道校验，通过login后，每次请求的校验，防止没注册直接通讯，使用token存在远程缓存中。
                 body = new CommonBody(200, "正常的消息");
                 break;
             default:

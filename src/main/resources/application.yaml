@@ -1,15 +1,13 @@
 #不能用localhost,否则启动报异常:Unresolved address
 #tcp监听的端口
 tcp:
-  port: 8090
+  port: 8410
   # bossGroup的线程数，通常设置为1，端口数有多少，设置为多少
   boss:
-    thread:
-      count: 2
+    threads: 2
     # worker的线程（CPU核心数 * 2）数，
   worker:
-    thread:
-      count: 8
+    threads: 8
   keepalive: # tcp校验的时间
     idle: 15
     interval: 60  # 无响应阈值
@@ -18,5 +16,19 @@ tcp:
     length: 40960
   retry: # 自定义重试测试
     count: 3
+websocket:
+  port: 8411  # WebSocket服务端口
+  path: /ws   # WebSocket路径
+  boss:
+    threads: 1  # boss线程数
+  worker:
+    threads: 8  # worker线程数
+  keepalive: # tcp校验的时间
+    idle: 15
+    interval: 30  # 空闲超时时间(秒)
+    count: 3
+  max-frame-size: 65536  # 最大帧长度
+  connect-timeout: 30000  # 连接超时时间(毫秒)
+
 
 
