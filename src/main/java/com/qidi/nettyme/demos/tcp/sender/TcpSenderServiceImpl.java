@@ -20,20 +20,20 @@ import java.util.Objects;
  */
 @Service
 @Slf4j
-public class SenderServiceImpl implements SenderService {
+public class TcpSenderServiceImpl implements TcpSenderService {
 
     @Value("${tcp.retry.count:3}")
     private int maxRetries;
 
     final Cache<String, LiveChannelCache> tcpClientCache;
 
-    public SenderServiceImpl(@Qualifier("tcpClientCache") Cache<String, LiveChannelCache> tcpClientCache) {
+    public TcpSenderServiceImpl(@Qualifier("tcpClientCache") Cache<String, LiveChannelCache> tcpClientCache) {
         this.tcpClientCache = tcpClientCache;
     }
 
     @Override
     public void sendMessage(String clientId, CommonDto<Body> commonDto) {
-        //TODO 根据clientId找到对应的channel，然后发送消息
+        //根据clientId找到对应的channel，然后发送消息
         LiveChannelCache channelCache = tcpClientCache.getIfPresent(clientId);
         if (Objects.isNull(channelCache) || !channelCache.getChannel().isActive()) {
             log.error("通讯通道已断开,clientId {}", clientId);

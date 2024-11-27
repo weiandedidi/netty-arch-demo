@@ -39,9 +39,6 @@ mqtt:
     threads: 8
   keepalive: # tcp校验的时间
     interval: 30  # 空闲超时时间(秒)
-  security:
-    private-key: "classpath:private_key.pem"
-    public-key: "classpath:public_key.pem"
 
 
 

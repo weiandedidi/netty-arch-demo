@@ -14,6 +14,8 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
 /**
+ * 测试方法的客户端详见：com.qidi.nettyme.demos.mqtt.MqttClient
+ *
  * @author maqidi
  * @version 1.0
  * @create 2024-11-14 18:00
