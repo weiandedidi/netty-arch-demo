@@ -14,11 +14,12 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
 /**
+ * 启动的时候打开 注解
  * @author maqidi
  * @version 1.0
  * @create 2024-11-06 09:55
  */
-@Component
+//@Component
 @Slf4j
 public class TcpServer {
     @Value("${tcp.port}")

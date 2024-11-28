@@ -2,6 +2,7 @@ package com.qidi.nettyme.demos.web;
 
 import com.qidi.nettyme.demos.mqtt.dto.PublishBody;
 import com.qidi.nettyme.demos.mqtt.sender.MqttSendService;
+import com.qidi.nettyme.demos.mqtt.valueobject.TopicConstant;
 import com.qidi.nettyme.demos.tcp.dto.Body;
 import com.qidi.nettyme.demos.tcp.dto.CommonDto;
 import com.qidi.nettyme.demos.tcp.dto.Header;
@@ -34,15 +35,13 @@ public class SenderController {
 
 
     @PostMapping("/send/{clientId}")
-    public ResponseVO<String> sendMqtt(@PathVariable String clientId, @RequestBody PubBody pubBody) {
+    public ResponseVO<String> sendMqtt(@PathVariable String clientId, @RequestBody CommonRequest request) {
         // 向特定 clientId 的客户端发送消息
         com.qidi.nettyme.demos.mqtt.dto.CommonDto<PublishBody> commonDto = new com.qidi.nettyme.demos.mqtt.dto.CommonDto<>();
-        String headerStr = "{\"messageId\":\"1234567890\",\"version\":\"1.0\",\"clientId\":\"client123\",\"messageType\":\"DATA\",\"requestType\":\"request\",\"timestamp\":1634567890123,\"traceId\":\"trace123456\",\"interfaceName\":\"getTemperatureData\",\"code\":200}";
-        com.qidi.nettyme.demos.mqtt.dto.Header header = GsonUtil.fromJsonString(headerStr, com.qidi.nettyme.demos.mqtt.dto.Header.class);
-        commonDto.setHeader(header);
-        PublishBody publishBody = PubBody.PublishBodyCovert.INSTANCE.covertToPublishBody(pubBody);
+        commonDto.setHeader(request.getHeader());
+        PublishBody publishBody = PubBody.PublishBodyCovert.INSTANCE.covertToPublishBody(request.getBody());
         commonDto.setBody(publishBody);
-        mqttSendService.sendMessage(clientId, commonDto);
+        mqttSendService.sendMessage(clientId, commonDto, TopicConstant.AGV_CMD_TOPIC);
         return ResponseVO.successEmptyResponse();
     }
 }

@@ -16,12 +16,13 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
 /**
+ * 启动的时候打开server
  * @author maqidi
  * @version 1.0
  * @create 2024-11-13 15:03
  */
 @Slf4j
-@Component
+//@Component
 public class WebSocketServer {
     @Value("${websocket.port:8411}")
     private int websocketPort;

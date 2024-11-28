@@ -42,6 +42,12 @@
             <artifactId>mapstruct</artifactId>
             <version>1.5.3.Final</version>
         </dependency>
+        <!--  解决mapstruct的内部类-->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct-processor</artifactId>
+            <version>1.5.3.Final</version>
+        </dependency>
         <!--mqtt的使用，使用原始的netty实现-->
         <!--        <dependency>-->
         <!--            <groupId>org.springframework.integration</groupId>-->

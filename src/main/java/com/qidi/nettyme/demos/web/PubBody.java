@@ -27,7 +27,8 @@ public class PubBody {
 
     @Mapper
     public interface PublishBodyCovert {
-        PublishBodyCovert INSTANCE = Mappers.getMapper(PublishBodyCovert.class);
+
+        PubBody.PublishBodyCovert INSTANCE = Mappers.getMapper(PublishBodyCovert.class);
 
         PublishBody covertToPublishBody(PubBody pubBody);
     }

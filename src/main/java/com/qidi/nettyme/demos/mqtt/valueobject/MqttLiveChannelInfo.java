@@ -6,12 +6,13 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
+ * 存储通讯的通道信息
  * Created by RoyDeng on 18/2/4.
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class MqttLiveChannelCache {
+public class MqttLiveChannelInfo {
     /**
      * 唯一id
      */

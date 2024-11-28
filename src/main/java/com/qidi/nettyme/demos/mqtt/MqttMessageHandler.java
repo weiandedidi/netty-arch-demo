@@ -1,14 +1,18 @@
 package com.qidi.nettyme.demos.mqtt;
 
 import com.google.common.cache.Cache;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.gson.reflect.TypeToken;
 import com.qidi.nettyme.demos.mqtt.dto.CommonDto;
 import com.qidi.nettyme.demos.mqtt.dto.PublishBody;
 import com.qidi.nettyme.demos.mqtt.receiver.MqttReceiverDemoService;
-import com.qidi.nettyme.demos.mqtt.valueobject.MqttLiveChannelCache;
-import com.qidi.nettyme.demos.tcp.valueobject.LiveChannelCache;
+import com.qidi.nettyme.demos.mqtt.valueobject.MqttLiveChannelInfo;
+import com.qidi.nettyme.demos.mqtt.valueobject.SubscriberInfo;
 import com.qidi.nettyme.demos.util.GsonUtil;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.mqtt.*;
@@ -16,11 +20,11 @@ import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.CharsetUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Type;
+import java.util.*;
 
 /**
  * 详见：https://blog.csdn.net/zwjzone/article/details/130089677   的配置
@@ -49,15 +53,21 @@ import java.lang.reflect.Type;
  */
 @Component
 @Slf4j
+@ChannelHandler.Sharable
 public class MqttMessageHandler extends SimpleChannelInboundHandler<MqttMessage> {
     final MqttReceiverDemoService mqttReceiverDemoService;
-    final Cache<String, MqttLiveChannelCache> mqttClientCache;
-    final Cache<String, MqttLiveChannelCache> mqttChannelCache;
+    //客户端id和通道映射
+    final Cache<String, MqttLiveChannelInfo> mqttClientCache;
+    //通道id和通道映射
+    final Cache<String, MqttLiveChannelInfo> mqttChannelCache;
+    //topic和订阅者映射
+    final Cache<String, Map<String, SubscriberInfo>> mqttSubscriberCache;
 
-    public MqttMessageHandler(MqttReceiverDemoService mqttReceiverDemoService, @Qualifier("mqttClientCache") Cache<String, MqttLiveChannelCache> mqttClientCache, @Qualifier("mqttChannelCache") Cache<String, MqttLiveChannelCache> mqttChannelCache) {
+    public MqttMessageHandler(MqttReceiverDemoService mqttReceiverDemoService, @Qualifier("mqttClientCache") Cache<String, MqttLiveChannelInfo> mqttClientCache, @Qualifier("mqttChannelCache") Cache<String, MqttLiveChannelInfo> mqttChannelCache, @Qualifier("mqttSubscriberCache") Cache<String, Map<String, SubscriberInfo>> mqttSubscriberCache) {
         this.mqttReceiverDemoService = mqttReceiverDemoService;
         this.mqttClientCache = mqttClientCache;
         this.mqttChannelCache = mqttChannelCache;
+        this.mqttSubscriberCache = mqttSubscriberCache;
     }
 
 
@@ -68,7 +78,6 @@ public class MqttMessageHandler extends SimpleChannelInboundHandler<MqttMessage>
                 //	在一个网络连接上，客户端只能发送一次CONNECT报文。服务端必须将客户端发送的第二个CONNECT报文当作协议违规处理并断开客户端的连接
                 //	建议connect消息单独处理，用来对客户端进行认证管理等 这里直接返回一个CONNACK消息
                 handleConnect(ctx, (MqttConnectMessage) mqttMessage);
-
                 break;
             case PUBLISH:
                 //发送消息
@@ -120,6 +129,14 @@ public class MqttMessageHandler extends SimpleChannelInboundHandler<MqttMessage>
      * @param msg
      */
     private void handleConnect(ChannelHandlerContext ctx, MqttConnectMessage msg) {
+        //如果已经建立连接了，就不在处理这个connect了
+        String clientId = msg.payload().clientIdentifier();
+//        if (Objects.nonNull(mqttClientCache.getIfPresent(clientId))) {
+//            //建立已创建不合理
+//            log.info("clientId:{} already connected", clientId);
+//            return;
+//        }
+        log.info("clientId:{} connected", clientId);
         registerChannelCache(ctx, msg);
         // 处理连接请求
         MqttConnAckMessage acceptAck = new MqttConnAckMessage(
@@ -138,7 +155,7 @@ public class MqttMessageHandler extends SimpleChannelInboundHandler<MqttMessage>
     private void registerChannelCache(ChannelHandlerContext ctx, MqttConnectMessage msg) {
         //建立连接
         String clientId = msg.payload().clientIdentifier();
-        MqttLiveChannelCache channelCache = new MqttLiveChannelCache();
+        MqttLiveChannelInfo channelCache = new MqttLiveChannelInfo();
         channelCache.setClientId(clientId);
         channelCache.setChannel(ctx.channel());
         channelCache.setAuthenticated(true);
@@ -181,6 +198,7 @@ public class MqttMessageHandler extends SimpleChannelInboundHandler<MqttMessage>
 
         //设置主题（topic）和 QoS（服务质量）等级
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.PUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0);
+        //需要
         MqttMessageIdVariableHeader variableHeader = MqttMessageIdVariableHeader.from(msg.variableHeader().packetId());
         MqttPubAckMessage acceptAck = new MqttPubAckMessage(fixedHeader, variableHeader);
         ctx.writeAndFlush(acceptAck);
@@ -196,8 +214,50 @@ public class MqttMessageHandler extends SimpleChannelInboundHandler<MqttMessage>
      */
     private void handleSubscribe(ChannelHandlerContext ctx, MqttSubscribeMessage msg) {
         // 处理订阅请求
-        log.info("Received subscribe message: {}", msg.payload());
+        List<MqttTopicSubscription> topicSubscriptionList = msg.payload().topicSubscriptions();
+        log.info("Received subscribe message, id : {}", msg.variableHeader().messageId());
+        List<Integer> subQosList = subscribeTopicCache(ctx, topicSubscriptionList);
+        // 发送 SUBACK 响应
+        MqttFixedHeader subAckFixedHeader = new MqttFixedHeader(
+                MqttMessageType.SUBACK,
+                false,
+                MqttQoS.AT_MOST_ONCE, //必须为这个值
+                false,
+                0
+        );
+
+        MqttSubAckPayload subAckPayload = new MqttSubAckPayload(subQosList);
+
+        MqttSubAckMessage subAckMessage = new MqttSubAckMessage(
+                subAckFixedHeader,
+                MqttMessageIdVariableHeader.from(msg.variableHeader().messageId()),
+                subAckPayload
+        );
+        //发送订阅完成
+        ctx.writeAndFlush(subAckMessage);
     }
+
+    private List<Integer> subscribeTopicCache(ChannelHandlerContext ctx, List<MqttTopicSubscription> topicSubscriptionList) {
+        //每个主题订阅的结果，严格要求队列顺序
+        List<Integer> subQosList = Lists.newArrayList();
+        MqttLiveChannelInfo mqttLiveChannelInfo = mqttChannelCache.getIfPresent(ctx.channel().id().asLongText());
+        if (mqttLiveChannelInfo == null) {
+            subQosList.add(MqttQoS.FAILURE.value());
+            return subQosList;
+        }
+        topicSubscriptionList.forEach(topicSubscription -> {
+            String topic = topicSubscription.topicName();
+            //保存订阅者信息，从MqttSubscribeMessage获取订阅者的clientIdentifier，因为clientId只会在connect 时才存在，从缓存获取
+            SubscriberInfo subscriberInfo = new SubscriberInfo(ctx.channel(), mqttLiveChannelInfo.getClientId());
+            Map<String, SubscriberInfo> clientId2subInfoMap = Optional.ofNullable(mqttSubscriberCache.getIfPresent(topic)).orElseGet(Maps::newConcurrentMap);
+            clientId2subInfoMap.put(mqttLiveChannelInfo.getClientId(), subscriberInfo);
+            mqttSubscriberCache.put(topic, clientId2subInfoMap);
+            subQosList.add(topicSubscription.qualityOfService().value());
+            log.info("Client {} subscribed to topic {} with QoS {}", mqttLiveChannelInfo.getClientId(), topic, subQosList);
+        });
+        return subQosList;
+    }
+
 
     /**
      * UNSUBSCRIBE (10) 取消订阅请求，用于客户端取消订阅一个或多个主题。
@@ -208,8 +268,61 @@ public class MqttMessageHandler extends SimpleChannelInboundHandler<MqttMessage>
      */
     private void handleUnSubscribe(ChannelHandlerContext ctx, MqttUnsubscribeMessage msg) {
         // 处理取消订阅请求
-        log.info("Received unsubscribe message: {}", msg.payload());
-        //连接处理
+        // 获取消息ID
+        int messageId = msg.variableHeader().messageId();
+        log.info("Received unsubscribe messageId: {}, payload {}", messageId, msg.payload());
+        //待取消的标题
+        List<String> topics = msg.payload().topics();
+        topics.forEach(topic -> unsubscribeTopic(topic, ctx));
+        // 发送 UNSUBACK 响应
+        MqttFixedHeader unsubAckFixedHeader = new MqttFixedHeader(
+                MqttMessageType.UNSUBACK,
+                false,
+                MqttQoS.AT_MOST_ONCE,
+                false,
+                0
+        );
+
+        MqttUnsubAckMessage unsubAckMessage = new MqttUnsubAckMessage(
+                unsubAckFixedHeader,
+                MqttMessageIdVariableHeader.from(messageId)
+        );
+        ctx.writeAndFlush(unsubAckMessage);
+    }
+
+    /**
+     * 移除订阅者
+     *
+     * @param topic
+     * @param ctx
+     * @return
+     */
+    private boolean unsubscribeTopic(String topic, ChannelHandlerContext ctx) {
+        try {
+            Map<String, SubscriberInfo> clientId2subInfoMap = mqttSubscriberCache.getIfPresent(topic);
+
+            if (clientId2subInfoMap == null) {
+                return false;
+            }
+
+            // 移除订阅者，通过channel获取clientId,从而移除订阅者
+            MqttLiveChannelInfo mqttLiveChannelInfo = mqttChannelCache.getIfPresent(ctx.channel().id().asLongText());
+            if (mqttLiveChannelInfo == null) {
+                return false;
+            }
+            String clientId = mqttLiveChannelInfo.getClientId();
+            SubscriberInfo removeResult = clientId2subInfoMap.remove(clientId);
+
+            // 如果主题没有订阅者，则删除主题
+            if (clientId2subInfoMap.isEmpty()) {
+                mqttSubscriberCache.invalidate(topic);
+            }
+            log.info("Client {} unsubscribed from topic {}", clientId, topic);
+            return true;
+        } catch (Exception e) {
+            log.error("Error unsubscribing from topic {}", topic, e);
+            return false;
+        }
     }
 
     /**
@@ -238,7 +351,7 @@ public class MqttMessageHandler extends SimpleChannelInboundHandler<MqttMessage>
             if (event.state() == IdleState.ALL_IDLE) {
                 log.info("No data received for 30 seconds, closing connection");
                 //TODO  断开链接操作，连接池处理一下
-                closeConnection(ctx);
+//                closeConnection(ctx);
             }
         }
         super.userEventTriggered(ctx, evt);
@@ -250,10 +363,10 @@ public class MqttMessageHandler extends SimpleChannelInboundHandler<MqttMessage>
      * @param ctx
      */
     private void closeConnection(ChannelHandlerContext ctx) {
-        MqttLiveChannelCache mqttLiveChannelCache = mqttChannelCache.getIfPresent(ctx.channel().id().asLongText());
-        if (mqttLiveChannelCache != null) {
-            mqttChannelCache.invalidate(mqttLiveChannelCache.getChannel().id().asLongText());
-            mqttClientCache.invalidate(mqttLiveChannelCache.getClientId());
+        MqttLiveChannelInfo mqttLiveChannelInfo = mqttChannelCache.getIfPresent(ctx.channel().id().asLongText());
+        if (mqttLiveChannelInfo != null) {
+            mqttChannelCache.invalidate(mqttLiveChannelInfo.getChannel().id().asLongText());
+            mqttClientCache.invalidate(mqttLiveChannelInfo.getClientId());
         }
         ctx.close();
     }
