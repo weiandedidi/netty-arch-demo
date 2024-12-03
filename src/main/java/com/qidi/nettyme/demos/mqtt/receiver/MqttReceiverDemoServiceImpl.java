@@ -69,7 +69,7 @@ public class MqttReceiverDemoServiceImpl implements MqttReceiverDemoService {
         //转发给所有的订阅者
         for (SubscriberInfo subscriberInfo : subscriberInfoMap.values()) {
             //转发消息，这里可以做策略，例如根据clientId做路由转发，或者根据消息类型做路由转发
-            mqttSendService.sendMessage(subscriberInfo.getClientId(), inputDto, topic);
+            mqttSendService.sendMessage(topic, inputDto);
         }
     }
 

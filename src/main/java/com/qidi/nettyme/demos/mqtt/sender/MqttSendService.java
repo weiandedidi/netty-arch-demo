@@ -13,6 +13,6 @@ import com.qidi.nettyme.demos.mqtt.dto.PublishBody;
  * @create 2024-11-26 19:25
  */
 public interface MqttSendService {
-    void sendMessage(String clientId, CommonDto<PublishBody> commonDto, String topic);
+    void sendMessage(String topic, CommonDto<PublishBody> commonDto);
 
 }

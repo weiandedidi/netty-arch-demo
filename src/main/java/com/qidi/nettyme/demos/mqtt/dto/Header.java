@@ -19,6 +19,10 @@ public class Header {
     private String version;
     private String clientId;
     /**
+     * 协议的主题
+     */
+    private String topic;
+    /**
      * 消息类型
      */
     private String messageType;

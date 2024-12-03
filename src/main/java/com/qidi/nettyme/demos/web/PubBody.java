@@ -2,8 +2,6 @@ package com.qidi.nettyme.demos.web;
 
 import com.qidi.nettyme.demos.mqtt.dto.PublishBody;
 import lombok.Data;
-import org.mapstruct.Mapper;
-import org.mapstruct.factory.Mappers;
 
 /**
  * @author maqidi
@@ -25,11 +23,22 @@ public class PubBody {
     //纵坐标
     private Integer y;
 
-    @Mapper
-    public interface PublishBodyCovert {
 
-        PubBody.PublishBodyCovert INSTANCE = Mappers.getMapper(PublishBodyCovert.class);
-
-        PublishBody covertToPublishBody(PubBody pubBody);
+    /**
+     * 构造结构体
+     *
+     * @param pubBody
+     * @return
+     */
+    public static PublishBody convertToPublishBody(PubBody pubBody) {
+        PublishBody publishBody = new PublishBody();
+        publishBody.setTemperature(pubBody.getTemperature());
+        publishBody.setHumidity(pubBody.getHumidity());
+        publishBody.setPower(pubBody.getPower());
+        publishBody.setStatus(pubBody.getStatus());
+        publishBody.setX(pubBody.getX());
+        publishBody.setY(pubBody.getY());
+        return publishBody;
     }
+
 }

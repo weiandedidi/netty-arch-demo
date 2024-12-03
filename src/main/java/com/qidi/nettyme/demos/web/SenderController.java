@@ -34,14 +34,15 @@ public class SenderController {
     }
 
 
-    @PostMapping("/send/{clientId}")
-    public ResponseVO<String> sendMqtt(@PathVariable String clientId, @RequestBody CommonRequest request) {
+    @PostMapping("/mqtt/send")
+    public ResponseVO<String> sendMqtt(@RequestBody CommonRequest request) {
         // 向特定 clientId 的客户端发送消息
         com.qidi.nettyme.demos.mqtt.dto.CommonDto<PublishBody> commonDto = new com.qidi.nettyme.demos.mqtt.dto.CommonDto<>();
         commonDto.setHeader(request.getHeader());
-        PublishBody publishBody = PubBody.PublishBodyCovert.INSTANCE.covertToPublishBody(request.getBody());
+        PublishBody publishBody = PubBody.convertToPublishBody(request.getBody());
         commonDto.setBody(publishBody);
-        mqttSendService.sendMessage(clientId, commonDto, TopicConstant.AGV_CMD_TOPIC);
+        String topic = request.getHeader().getTopic();
+        mqttSendService.sendMessage(topic, commonDto);
         return ResponseVO.successEmptyResponse();
     }
 }

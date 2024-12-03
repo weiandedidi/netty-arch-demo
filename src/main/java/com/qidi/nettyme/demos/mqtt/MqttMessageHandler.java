@@ -185,6 +185,7 @@ public class MqttMessageHandler extends SimpleChannelInboundHandler<MqttMessage>
         String topic = msg.variableHeader().topicName();
         //加密的消息也可以这里解密
         ByteBuf payload = msg.payload();
+        log.info("Received publish topic {}, message {}", topic, msg.payload());
         // 将 ByteBuf 转换为字节数组
         byte[] payloadBytes = new byte[payload.readableBytes()];
         msg.payload().getBytes(0, payloadBytes);
@@ -202,7 +203,6 @@ public class MqttMessageHandler extends SimpleChannelInboundHandler<MqttMessage>
         MqttMessageIdVariableHeader variableHeader = MqttMessageIdVariableHeader.from(msg.variableHeader().packetId());
         MqttPubAckMessage acceptAck = new MqttPubAckMessage(fixedHeader, variableHeader);
         ctx.writeAndFlush(acceptAck);
-        log.info("Received publish topic {}, message {}", topic, msg.payload());
     }
 
     /**
@@ -234,7 +234,11 @@ public class MqttMessageHandler extends SimpleChannelInboundHandler<MqttMessage>
                 subAckPayload
         );
         //发送订阅完成
-        ctx.writeAndFlush(subAckMessage);
+        try {
+            ctx.writeAndFlush(subAckMessage);
+        } catch (Exception e) {
+            log.error("Failed to send SUBACK message", e);
+        }
     }
 
     private List<Integer> subscribeTopicCache(ChannelHandlerContext ctx, List<MqttTopicSubscription> topicSubscriptionList) {
@@ -245,6 +249,7 @@ public class MqttMessageHandler extends SimpleChannelInboundHandler<MqttMessage>
             subQosList.add(MqttQoS.FAILURE.value());
             return subQosList;
         }
+
         topicSubscriptionList.forEach(topicSubscription -> {
             String topic = topicSubscription.topicName();
             //保存订阅者信息，从MqttSubscribeMessage获取订阅者的clientIdentifier，因为clientId只会在connect 时才存在，从缓存获取
@@ -252,10 +257,34 @@ public class MqttMessageHandler extends SimpleChannelInboundHandler<MqttMessage>
             Map<String, SubscriberInfo> clientId2subInfoMap = Optional.ofNullable(mqttSubscriberCache.getIfPresent(topic)).orElseGet(Maps::newConcurrentMap);
             clientId2subInfoMap.put(mqttLiveChannelInfo.getClientId(), subscriberInfo);
             mqttSubscriberCache.put(topic, clientId2subInfoMap);
-            subQosList.add(topicSubscription.qualityOfService().value());
+            MqttQoS subQos = checkAndHandleQoS(topicSubscription.qualityOfService());
+            subQosList.add(subQos.value());
             log.info("Client {} subscribed to topic {} with QoS {}", mqttLiveChannelInfo.getClientId(), topic, subQosList);
         });
         return subQosList;
+    }
+
+    /**
+     * 根据请求的 QoS 和 Broker 的实际处理情况来确定最终的 QoS
+     * 后面这个主题可以修改
+     */
+    private MqttQoS checkAndHandleQoS(MqttQoS requestedQoS) {
+        // 假设这里是一个示例，真实的 Broker 可以根据某些条件（比如订阅的主题）来调整 QoS 级别
+        if (requestedQoS == MqttQoS.AT_MOST_ONCE) {
+            // 如果请求的 QoS 是 AT_MOST_ONCE，则直接使用该 QoS
+            return MqttQoS.AT_MOST_ONCE;
+        } else if (requestedQoS == MqttQoS.AT_LEAST_ONCE) {
+            // 如果请求的 QoS 是 AT_LEAST_ONCE，Broker 可能决定使用更高的 QoS
+            // 这里可以添加对 QoS 1 的特殊处理逻辑
+            return MqttQoS.AT_LEAST_ONCE;
+        } else if (requestedQoS == MqttQoS.EXACTLY_ONCE) {
+            // 如果请求的 QoS 是 EXACTLY_ONCE，则可能会有一些限制
+            // 比如某些主题不允许 QoS 2 级别的传递
+            return MqttQoS.EXACTLY_ONCE;
+        }
+
+        // 默认情况下，返回最简单的 QoS
+        return MqttQoS.AT_MOST_ONCE;
     }
 
 
