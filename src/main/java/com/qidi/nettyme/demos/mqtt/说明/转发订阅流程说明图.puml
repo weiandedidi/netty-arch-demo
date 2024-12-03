@@ -1,0 +1,10 @@
+@startuml
+actor "Client B (智慧大屏)" as B
+actor "Client A (智慧小车)" as A
+entity "MQTT Broker" as Broker
+
+B -> Broker : 订阅 topic: screen/report
+A -> Broker : 发布数据到 topic: agv/report
+Broker -> B : 转发数据到 topic: screen/report
+
+@enduml

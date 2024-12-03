@@ -1,0 +1,16 @@
+@startuml
+actor 用户 as user
+entity "MQTT Broker" as broker
+entity "Client A (智慧大屏)" as A
+
+A -> broker : 订阅 topic: screen/report
+
+user -> broker : 给指定topic发送指令: /sender/mqtt/send
+activate broker
+broker -> broker : 查找订阅者的通讯通道: MqttSendServiceImpl#sendMessage
+broker -> broker : 封装发送的报文
+broker -> broker : push报文到指定topic
+broker -> A : 转发数据到 topic: screen/report
+deactivate broker
+
+@enduml
