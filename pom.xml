@@ -63,6 +63,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+        <!-- 公钥和私钥加密使用 start      -->
         <!--Bouncy Castle 库来处理 PEM 编码-->
         <dependency>
             <groupId>org.bouncycastle</groupId>
@@ -81,6 +82,8 @@
             <scope>runtime</scope>
             <optional>true</optional>
         </dependency>
+        <!-- 公钥和私钥加密使用 end      -->
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
